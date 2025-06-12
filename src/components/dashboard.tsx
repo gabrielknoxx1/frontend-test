@@ -136,19 +136,17 @@ function SymbolsTable() {
 
   // Função de teste para WebSocket
   const testWebSocket = () => {
-    console.log("🧪 Testing WebSocket connection...")
     const testUrl = "wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/ethusdt@ticker"
     const testWs = new WebSocket(testUrl)
     
     testWs.onopen = () => {
-      console.log("✅ Test WebSocket connected to:", testUrl)
+      // Test WebSocket connected
     }
     
     testWs.onmessage = (event) => {
-      console.log("📨 Test message received:", event.data)
       try {
         const message = JSON.parse(event.data)
-        console.log("📊 Test parsed message:", message)
+        // Test message parsed successfully
       } catch (error) {
         console.error("❌ Test parse error:", error)
       }
@@ -159,7 +157,7 @@ function SymbolsTable() {
     }
     
     testWs.onclose = (event) => {
-      console.log("🔌 Test WebSocket closed:", event.code, event.reason)
+      // Test WebSocket closed
     }
     
     // Close after 10 seconds

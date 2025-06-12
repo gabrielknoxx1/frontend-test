@@ -54,37 +54,20 @@ export function useWebSocketPrices() {
     const streams = symbols.map((symbol) => `${symbol.toLowerCase()}@ticker`).join("/")
     const wsUrl = `wss://stream.binance.com:9443/stream?streams=${streams}`
 
-    console.log("Connecting to WebSocket:", wsUrl)
-    console.log("Symbols to monitor:", symbols)
-
     try {
       const ws = new WebSocket(wsUrl)
       wsRef.current = ws
 
       ws.onopen = () => {
-        console.log("✅ WebSocket connected successfully")
-        console.log("Connection state:", ws.readyState)
+        // WebSocket connected successfully
       }
 
       ws.onmessage = (event) => {
         try {
-          console.log("📨 Raw message received:", event.data)
           const message: BinanceWebSocketMessage = JSON.parse(event.data)
-
-          console.log("🔍 Parsed message:", {
-            stream: message.stream,
-            eventType: message.data?.e,
-            symbol: message.data?.s,
-          })
 
           // Verificar se é uma mensagem de ticker válida
           if (message.data && message.data.e === "24hrTicker") {
-            console.log("📈 Processing ticker data for:", message.data.s, {
-              lastPrice: message.data.c,
-              priceChange: message.data.p,
-              priceChangePercent: message.data.P,
-            })
-
             setSymbolPrices((prev: Record<string, SymbolPrice>) => {
               const newPrices = {
                 ...prev,
@@ -97,11 +80,8 @@ export function useWebSocketPrices() {
                   priceChangePercent: Number.parseFloat(message.data.P).toFixed(2),
                 },
               }
-              console.log("💾 Updated prices state:", newPrices)
               return newPrices
             })
-          } else {
-            console.log("⚠️ Received non-ticker message:", message)
           }
         } catch (error) {
           console.error("❌ Error parsing WebSocket message:", error)
@@ -114,17 +94,10 @@ export function useWebSocketPrices() {
       }
 
       ws.onclose = (event) => {
-        console.log("🔌 WebSocket closed:", {
-          code: event.code,
-          reason: event.reason,
-          wasClean: event.wasClean,
-        })
-
         // Attempt to reconnect after 3 seconds if not a clean close
         if (!event.wasClean && event.code !== 1000) {
           reconnectTimeoutRef.current = setTimeout(() => {
             if (symbols.length > 0) {
-              console.log("🔄 Attempting to reconnect...")
               connectWebSocket(symbols)
             }
           }, 3000)
