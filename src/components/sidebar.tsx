@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -23,24 +23,15 @@ interface SymbolItemProps {
 }
 
 function SymbolItem({ symbol, isSelected, onToggle }: SymbolItemProps) {
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      onToggle(symbol)
-    }
-  }
-
   return (
-    <div
+    <button
+      type="button"
       className={cn(
-        "flex items-center justify-between p-3 rounded-md cursor-pointer transition-colors",
+        "flex items-center justify-between p-3 rounded-md transition-colors w-full text-left",
         "hover:bg-blue-50 hover:border-blue-200 border border-transparent",
         isSelected && "bg-blue-50 border-blue-200"
       )}
       onClick={() => onToggle(symbol)}
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-      role="button"
       aria-label={`Toggle symbol ${symbol}`}
     >
       <span className="text-sm font-medium text-gray-700">{symbol}</span>
@@ -48,21 +39,71 @@ function SymbolItem({ symbol, isSelected, onToggle }: SymbolItemProps) {
         checked={isSelected}
         onCheckedChange={() => onToggle(symbol)}
         onClick={(e) => e.stopPropagation()}
+        tabIndex={-1}
+        className="border-gray-400 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
       />
-    </div>
+    </button>
   )
 }
 
-function SearchBar() {
+interface SelectAllItemProps {
+  isAllSelected: boolean
+  onToggleAll: () => void
+}
+
+function SelectAllItem({ isAllSelected, onToggleAll }: SelectAllItemProps) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "flex items-center justify-between p-3 rounded-md transition-colors w-full text-left mb-2",
+        "hover:bg-green-50 hover:border-green-200 border border-transparent",
+        "bg-green-50 border-green-200 font-medium"
+      )}
+      onClick={onToggleAll}
+      aria-label="Selecionar todos os símbolos"
+    >
+      <span className="text-sm font-medium text-green-700">Selecionar Todos</span>
+      <Checkbox
+        checked={isAllSelected}
+        onCheckedChange={onToggleAll}
+        onClick={(e) => e.stopPropagation()}
+        tabIndex={-1}
+        className="border-gray-400 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+      />
+    </button>
+  )
+}
+
+interface SearchBarProps {
+  onClearSearch: React.MutableRefObject<(() => void) | null>
+  onSearchValueChange: (value: string) => void
+}
+
+function SearchBar({ onClearSearch, onSearchValueChange }: SearchBarProps) {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const { setAvailableSymbols } = useSymbolContext()
   
-  const { register, watch } = useForm<SearchForm>({
+  const { register, watch, reset } = useForm<SearchForm>({
     resolver: zodResolver(searchSchema),
     defaultValues: { search: '' }
   })
   
   const searchValue = watch('search')
+  
+  // Notify parent of search value changes
+  useEffect(() => {
+    onSearchValueChange(searchValue)
+  }, [searchValue, onSearchValueChange])
+  
+  // Expose clear function to parent
+  useEffect(() => {
+    onClearSearch.current = () => {
+      reset({ search: '' })
+      setDebouncedSearch('')
+      setAvailableSymbols([])
+    }
+  }, [reset, setAvailableSymbols, onClearSearch])
   
   // Debounce search term
   useEffect(() => {
@@ -100,18 +141,39 @@ function SearchBar() {
   )
 }
 
-function SymbolsList() {
+interface SymbolsListProps {
+  searchValue: string
+}
+
+function SymbolsList({ searchValue }: SymbolsListProps) {
   const { availableSymbols, selectedSymbols, setSelectedSymbols } = useSymbolContext()
   
   const handleToggleSymbol = (symbol: string) => {
-    setSelectedSymbols(prev => 
-      prev.includes(symbol) 
-        ? prev.filter(s => s !== symbol)
-        : [...prev, symbol]
-    )
+    const newSymbols = selectedSymbols.includes(symbol) 
+      ? selectedSymbols.filter((ticker: string) => ticker !== symbol)
+      : [...selectedSymbols, symbol]
+    setSelectedSymbols(newSymbols)
   }
   
-  if (availableSymbols.length === 0) {
+  const handleToggleAll = () => {
+    const availableSymbolNames = availableSymbols.map(symbol => symbol.symbol)
+    const isAllSelected = availableSymbolNames.every(symbol => selectedSymbols.includes(symbol))
+    
+    if (isAllSelected) {
+      // Deselect all available symbols
+      const newSymbols = selectedSymbols.filter(symbol => 
+        !availableSymbolNames.includes(symbol)
+      )
+      setSelectedSymbols(newSymbols)
+    } else {
+      // Select all available symbols
+      const newSymbols = [...new Set([...selectedSymbols, ...availableSymbolNames])]
+      setSelectedSymbols(newSymbols)
+    }
+  }
+  
+  // Não mostrar lista se não há texto no input
+  if (searchValue.trim() === '') {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
         Digite para pesquisar símbolos
@@ -119,8 +181,25 @@ function SymbolsList() {
     )
   }
   
+  if (availableSymbols.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+        Nenhum símbolo encontrado
+      </div>
+    )
+  }
+  
+  const availableSymbolNames = availableSymbols.map(symbol => symbol.symbol)
+  const isAllSelected = availableSymbolNames.length > 0 && 
+    availableSymbolNames.every(symbol => selectedSymbols.includes(symbol))
+  
   return (
     <div className="flex-1 overflow-y-auto space-y-2">
+      <SelectAllItem
+        isAllSelected={isAllSelected}
+        onToggleAll={handleToggleAll}
+      />
+      
       {availableSymbols.map((symbol) => (
         <SymbolItem
           key={symbol.symbol}
@@ -135,21 +214,33 @@ function SymbolsList() {
 
 export function Sidebar() {
   const { selectedSymbols, addSymbolsToActiveList } = useSymbolContext()
+  const clearSearchRef = useRef<(() => void) | null>(null)
+  const [searchValue, setSearchValue] = useState('')
   
   const handleAddToList = () => {
     if (selectedSymbols.length > 0) {
       addSymbolsToActiveList(selectedSymbols)
+      
+      // Limpar o input de busca e a lista de símbolos disponíveis
+      if (clearSearchRef.current) {
+        clearSearchRef.current()
+      }
+      setSearchValue('')
     }
+  }
+  
+  const handleSearchValueChange = (value: string) => {
+    setSearchValue(value)
   }
   
   return (
     <div className="w-full lg:w-80 bg-white lg:border-r border-gray-200 flex flex-col h-full">
       <div className="p-4 border-b border-gray-200 shrink-0">
-        <SearchBar />
+        <SearchBar onClearSearch={clearSearchRef} onSearchValueChange={handleSearchValueChange} />
       </div>
       
       <div className="flex-1 p-4 flex flex-col overflow-hidden">
-        <SymbolsList />
+        <SymbolsList searchValue={searchValue} />
       </div>
       
       <div className="p-4 border-t border-gray-200 shrink-0">
