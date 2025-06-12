@@ -132,7 +132,41 @@ function SymbolsTable() {
   const { symbolLists, activeListId, symbolPrices } = useSymbolContext()
   
   // Connect to WebSocket for price updates
-  // useWebSocketPrices()
+  useWebSocketPrices()
+
+  // Função de teste para WebSocket
+  const testWebSocket = () => {
+    console.log("🧪 Testing WebSocket connection...")
+    const testUrl = "wss://stream.binance.com:9443/stream?streams=btcusdt@ticker/ethusdt@ticker"
+    const testWs = new WebSocket(testUrl)
+    
+    testWs.onopen = () => {
+      console.log("✅ Test WebSocket connected to:", testUrl)
+    }
+    
+    testWs.onmessage = (event) => {
+      console.log("📨 Test message received:", event.data)
+      try {
+        const message = JSON.parse(event.data)
+        console.log("📊 Test parsed message:", message)
+      } catch (error) {
+        console.error("❌ Test parse error:", error)
+      }
+    }
+    
+    testWs.onerror = (error) => {
+      console.error("❌ Test WebSocket error:", error)
+    }
+    
+    testWs.onclose = (event) => {
+      console.log("🔌 Test WebSocket closed:", event.code, event.reason)
+    }
+    
+    // Close after 10 seconds
+    setTimeout(() => {
+      testWs.close()
+    }, 10000)
+  }
   
   const activeList = symbolLists.find(list => list.id === activeListId)
   
@@ -141,9 +175,16 @@ function SymbolsTable() {
       <div className="flex-1 flex items-center justify-center overflow-hidden">
         <div className="text-center">
           <p className="text-gray-500 text-lg mb-2">Nenhum símbolo na lista</p>
-          <p className="text-gray-400 text-sm">
+          <p className="text-gray-400 text-sm mb-4">
             Adicione símbolos usando a barra lateral
           </p>
+          <button
+            type="button"
+            onClick={testWebSocket}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            🧪 Testar WebSocket
+          </button>
         </div>
       </div>
     )

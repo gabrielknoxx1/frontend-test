@@ -32,7 +32,7 @@ interface SymbolContextValue {
   
   // Symbol prices from websocket
   symbolPrices: Record<string, SymbolPrice>
-  setSymbolPrices: (prices: Record<string, SymbolPrice>) => void
+  setSymbolPrices: (prices: Record<string, SymbolPrice> | ((prev: Record<string, SymbolPrice>) => Record<string, SymbolPrice>)) => void
   
   // Symbol lists
   symbolLists: SymbolList[]
