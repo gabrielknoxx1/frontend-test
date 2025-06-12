@@ -45,6 +45,9 @@ interface SymbolContextValue {
   // Add symbols to active list
   addSymbolsToActiveList: (symbols: string[]) => void
   
+  // Remove symbol from active list
+  removeSymbolFromActiveList: (symbol: string) => void
+  
   // Add new list
   addNewList: (name: string) => void
 }
@@ -113,6 +116,23 @@ export function SymbolProvider({ children }: SymbolProviderProps) {
     setSelectedSymbols([])
   }
 
+  const removeSymbolFromActiveList = (symbol: string) => {
+    if (!activeListId) return
+    
+    setSymbolLists(prev => {
+      const newLists = prev.map(list => {
+        if (list.id === activeListId) {
+          return { ...list, symbols: list.symbols.filter(s => s !== symbol) }
+        }
+        return list
+      })
+      
+      // Save to localStorage
+      localStorage.setItem('symbol-lists', JSON.stringify(newLists))
+      return newLists
+    })
+  }
+
   const addNewList = (name: string) => {
     const newList: SymbolList = {
       id: Date.now().toString(),
@@ -147,6 +167,7 @@ export function SymbolProvider({ children }: SymbolProviderProps) {
       }
     },
     addSymbolsToActiveList,
+    removeSymbolFromActiveList,
     addNewList
   }
 

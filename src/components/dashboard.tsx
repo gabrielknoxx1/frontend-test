@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { PlusCircle } from 'lucide-react'
+import { PlusCircle, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog'
 import { useSymbolContext } from '@/contexts/symbol-context'
 import { useWebSocketPrices } from '@/hooks/use-websocket-prices'
+import type { SymbolPrice } from '@/contexts/symbol-context'
 
 const newListSchema = z.object({
   name: z.string().min(1, 'Nome da lista é obrigatório')
@@ -129,10 +130,69 @@ function DashboardHeader() {
 }
 
 function SymbolsTable() {
-  const { symbolLists, activeListId, symbolPrices } = useSymbolContext()
+  const { symbolLists, activeListId, symbolPrices, removeSymbolFromActiveList } = useSymbolContext()
+  const previousPricesRef = useRef<Record<string, SymbolPrice>>({})
+  const [priceChanges, setPriceChanges] = useState<Record<string, { 
+    lastPrice: 'up' | 'down' | 'neutral',
+    bidPrice: 'up' | 'down' | 'neutral',
+    askPrice: 'up' | 'down' | 'neutral'
+  }>>({})
   
   // Connect to WebSocket for price updates
   useWebSocketPrices()
+
+  // Track price changes for color coding
+  useEffect(() => {
+    const currentChanges: typeof priceChanges = {}
+    
+    for (const symbol of Object.keys(symbolPrices)) {
+      const currentPrice = symbolPrices[symbol]
+      const previousPrice = previousPricesRef.current[symbol]
+      
+      if (previousPrice && currentPrice) {
+        currentChanges[symbol] = {
+          lastPrice: comparePrice(currentPrice.lastPrice, previousPrice.lastPrice),
+          bidPrice: comparePrice(currentPrice.bidPrice, previousPrice.bidPrice),
+          askPrice: comparePrice(currentPrice.askPrice, previousPrice.askPrice)
+        }
+      } else {
+        currentChanges[symbol] = {
+          lastPrice: 'neutral',
+          bidPrice: 'neutral',
+          askPrice: 'neutral'
+        }
+      }
+    }
+    
+    setPriceChanges(currentChanges)
+    previousPricesRef.current = { ...symbolPrices }
+  }, [symbolPrices])
+
+  const comparePrice = (current: string, previous: string): 'up' | 'down' | 'neutral' => {
+    const currentNum = Number.parseFloat(current)
+    const previousNum = Number.parseFloat(previous)
+    
+    if (Number.isNaN(currentNum) || Number.isNaN(previousNum)) return 'neutral'
+    
+    if (currentNum > previousNum) return 'up'
+    if (currentNum < previousNum) return 'down'
+    return 'neutral'
+  }
+
+  const getPriceColorClass = (direction: 'up' | 'down' | 'neutral') => {
+    switch (direction) {
+      case 'up':
+        return 'text-green-600'
+      case 'down':
+        return 'text-red-600'
+      default:
+        return 'text-gray-900'
+    }
+  }
+
+  const handleRemoveSymbol = (symbol: string) => {
+    removeSymbolFromActiveList(symbol)
+  }
 
   // Função de teste para WebSocket
   const testWebSocket = () => {
@@ -209,37 +269,54 @@ function SymbolsTable() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Price Change (%)
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {activeList.symbols.map(symbol => {
               const priceData = symbolPrices[symbol]
+              const priceChangeData = priceChanges[symbol]
               
               return (
                 <tr key={symbol} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {symbol}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${priceChangeData ? getPriceColorClass(priceChangeData.lastPrice) : 'text-gray-900'}`}>
                     {priceData?.lastPrice || '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${priceChangeData ? getPriceColorClass(priceChangeData.bidPrice) : 'text-gray-900'}`}>
                     {priceData?.bidPrice || '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${priceChangeData ? getPriceColorClass(priceChangeData.askPrice) : 'text-gray-900'}`}>
                     {priceData?.askPrice || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {priceData?.priceChangePercent ? (
                       <Badge 
                         variant="success"
-                        className="bg-green-100 text-green-800 border-green-200"
+                        className={`${Number.parseFloat(priceData.priceChangePercent) >= 0 
+                          ? 'bg-green-100 text-green-800 border-green-200' 
+                          : 'bg-red-100 text-red-800 border-red-200'
+                        }`}
                       >
                         {priceData.priceChangePercent}%
                       </Badge>
                     ) : (
                       '-'
                     )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveSymbol(symbol)}
+                      className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </td>
                 </tr>
               )
@@ -252,33 +329,53 @@ function SymbolsTable() {
       <div className="block md:hidden flex-1 overflow-auto p-4 space-y-4">
         {activeList.symbols.map(symbol => {
           const priceData = symbolPrices[symbol]
+          const priceChangeData = priceChanges[symbol]
           
           return (
             <div key={symbol} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
               <div className="flex justify-between items-start mb-3">
                 <h3 className="text-lg font-semibold text-gray-900">{symbol}</h3>
-                {priceData?.priceChangePercent && (
-                  <Badge 
-                    variant="success"
-                    className="bg-green-100 text-green-800 border-green-200"
+                <div className="flex items-center gap-2">
+                  {priceData?.priceChangePercent && (
+                    <Badge 
+                      variant="success"
+                      className={`${Number.parseFloat(priceData.priceChangePercent) >= 0 
+                        ? 'bg-green-100 text-green-800 border-green-200' 
+                        : 'bg-red-100 text-red-800 border-red-200'
+                      }`}
+                    >
+                      {priceData.priceChangePercent}%
+                    </Badge>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveSymbol(symbol)}
+                    className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1"
                   >
-                    {priceData.priceChangePercent}%
-                  </Badge>
-                )}
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">Last Price:</span>
-                  <p className="font-medium">{priceData?.lastPrice || '-'}</p>
+                  <p className={`font-medium ${priceChangeData ? getPriceColorClass(priceChangeData.lastPrice) : 'text-gray-900'}`}>
+                    {priceData?.lastPrice || '-'}
+                  </p>
                 </div>
                 <div>
                   <span className="text-gray-500">Bid Price:</span>
-                  <p className="font-medium">{priceData?.bidPrice || '-'}</p>
+                  <p className={`font-medium ${priceChangeData ? getPriceColorClass(priceChangeData.bidPrice) : 'text-gray-900'}`}>
+                    {priceData?.bidPrice || '-'}
+                  </p>
                 </div>
                 <div>
                   <span className="text-gray-500">Ask Price:</span>
-                  <p className="font-medium">{priceData?.askPrice || '-'}</p>
+                  <p className={`font-medium ${priceChangeData ? getPriceColorClass(priceChangeData.askPrice) : 'text-gray-900'}`}>
+                    {priceData?.askPrice || '-'}
+                  </p>
                 </div>
               </div>
             </div>
