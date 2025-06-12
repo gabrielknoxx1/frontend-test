@@ -31,7 +31,6 @@ type NewListForm = z.infer<typeof newListSchema>
 
 function DashboardHeader() {
   const { symbolLists, activeListId, setActiveListId, addNewList } = useSymbolContext()
-  console.log("🚀 ~ DashboardHeader ~ symbolLists:", symbolLists)
   const [isModalOpen, setIsModalOpen] = useState(false)
   
   const { register, handleSubmit, reset, formState: { errors } } = useForm<NewListForm>({
@@ -52,7 +51,7 @@ function DashboardHeader() {
 
   return (
     <>
-      <div className="flex items-center justify-between p-4 lg:p-6 border-b border-gray-200 shrink-0">
+      <div className="flex items-center justify-between p-4 lg:p-4 border-b border-gray-200 shrink-0">
         <div className="flex items-center gap-2 lg:gap-4 w-full">
           <Select
             value={activeListId || ''}
@@ -62,9 +61,13 @@ function DashboardHeader() {
             <SelectTrigger className="w-full lg:w-48 text-black">
               <SelectValue placeholder="Selecione uma lista" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-gray-50">
               {symbolLists.map(list => (
-                <SelectItem key={list.id} value={list.id} className="text-black">
+                <SelectItem 
+                  key={list.id} 
+                  value={list.id} 
+                  className="text-black cursor-pointer hover:border-b-2	 hover:border-white"
+                >
                   {list.name}
                 </SelectItem>
               ))}
@@ -129,7 +132,7 @@ function SymbolsTable() {
   const { symbolLists, activeListId, symbolPrices } = useSymbolContext()
   
   // Connect to WebSocket for price updates
-  useWebSocketPrices()
+  // useWebSocketPrices()
   
   const activeList = symbolLists.find(list => list.id === activeListId)
   
@@ -249,7 +252,7 @@ function SymbolsTable() {
 
 export function Dashboard() {
   return (
-    <div className="flex-1 flex flex-col bg-white overflow-hidden">
+    <div className="flex-1 flex flex-col bg-white rounded-lg border border-gray-400 overflow-hidden">
       <DashboardHeader />
       <SymbolsTable />
     </div>

@@ -8,7 +8,7 @@ export function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   return (
-    <div className="w-full h-screen bg-gray-50 flex overflow-hidden">
+    <div className="w-full p-4 gap-4 h-screen bg-gray-50 flex overflow-hidden">
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex">
         <Sidebar />

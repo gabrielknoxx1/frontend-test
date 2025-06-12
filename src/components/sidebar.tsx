@@ -234,7 +234,7 @@ export function Sidebar() {
   }
   
   return (
-    <div className="w-full lg:w-80 bg-white lg:border-r border-gray-200 flex flex-col h-full">
+    <div className="w-full lg:w-80 rounded-lg bg-white lg:border border-gray-400 flex flex-col h-full">
       <div className="p-4 border-b border-gray-200 shrink-0">
         <SearchBar onClearSearch={clearSearchRef} onSearchValueChange={handleSearchValueChange} />
       </div>
